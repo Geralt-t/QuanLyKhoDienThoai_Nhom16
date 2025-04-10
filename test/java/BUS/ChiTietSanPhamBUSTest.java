@@ -12,25 +12,34 @@ import static org.junit.Assert.*;
  * @author admin
  */
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import DAO.ChiTietSanPhamDAO;
 import DTO.ChiTietSanPhamDTO;
-
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-
+import org.mockito.*;
+import static org.mockito.Mockito.*;
 
 public class ChiTietSanPhamBUSTest {
 
+    @InjectMocks
     private ChiTietSanPhamBUS chiTietSanPhamBUS;
 
+    @Mock
+    private ChiTietSanPhamDAO chiTietSanPhamDAO;
+
+   
+   
     @Before
     public void setUp() {
         chiTietSanPhamBUS = new ChiTietSanPhamBUS();
          ChiTietSanPhamDTO dto1 = new ChiTietSanPhamDTO();
         dto1.setImei("IMEI001");
-
+         MockitoAnnotations.initMocks(this); // Khởi tạo mock
         ChiTietSanPhamDTO dto2 = new ChiTietSanPhamDTO();
         dto2.setImei("IMEI002");
 
@@ -48,6 +57,36 @@ public class ChiTietSanPhamBUSTest {
         assertEquals("IMEI001", result.get(0).getImei());
         assertEquals("IMEI002", result.get(1).getImei());
     }
+    @Test
+    public void testUpdateXuat_ShouldCallDAO() {
+        
+    }
+@Test
+public void testShow() {
+    ArrayList<ChiTietSanPhamDTO> list = new ArrayList<>();
+    ChiTietSanPhamDTO dto1 = new ChiTietSanPhamDTO();
+    dto1.setImei("IMEI001");
+    ChiTietSanPhamDTO dto2 = new ChiTietSanPhamDTO();
+    dto2.setImei("IMEI002");
+    list.add(dto1);
+    list.add(dto2);
+
+    ByteArrayOutputStream outContent = new ByteArrayOutputStream();
+    PrintStream originalOut = System.out;
+    System.setOut(new PrintStream(outContent));
+
+    chiTietSanPhamBUS.Show(list);
+
+    System.setOut(originalOut);
+
+    String actualOutput = outContent.toString().trim(); // Xử lý chuỗi thực tế
+    String[] lines = actualOutput.split("\\r?\\n");
+
+    assertEquals(2, lines.length);
+    assertEquals("IMEI001", lines[0].trim());
+    assertEquals("IMEI002", lines[1].trim());
+}
+
 
     @Test
     public void testGetByIndex() {

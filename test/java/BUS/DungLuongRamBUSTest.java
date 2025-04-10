@@ -1,139 +1,143 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/UnitTests/JUnit4TestClass.java to edit this template
- */
 package BUS;
 
+import DAO.DungLuongRamDAO;
 import DTO.ThuocTinhSanPham.DungLuongRamDTO;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.*;
+
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 public class DungLuongRamBUSTest {
 
-    private DungLuongRamBUS dlRamBUS;
+    // Tạo mock cho DAO
+    @Mock
+    private DungLuongRamDAO mockDAO;
 
-    private DungLuongRamDTO testRam;
+    // Lớp BUS cần test
+    private DungLuongRamBUS ramBUS;
 
     @Before
-    public void setUp() {
-        dlRamBUS = new DungLuongRamBUS();
-        testRam = new DungLuongRamDTO();
-        testRam.setDungluongram(64);
-        dlRamBUS.add(testRam);
-    }
-
-   
-    @Test
-    public void testAdd() {
-        DungLuongRamDTO newRam = new DungLuongRamDTO();
-        newRam.setMadlram(1000);
-        newRam.setDungluongram(128);
-
-        boolean result = dlRamBUS.add(newRam);
-        assertTrue(result);
-
-        // Kiểm tra xem dữ liệu đã được thêm chưa
-        assertNotNull(dlRamBUS.getByIndex(dlRamBUS.getIndexById(1000)));
+    public void setUp() throws Exception {
+        // Khởi tạo các mock
+        MockitoAnnotations.initMocks(this);
+        
+        // Tạo instance BUS thông qua constructor mặc định
+        ramBUS = new DungLuongRamBUS();
+        
+        // Dùng reflection để inject mockDAO vào trường private final 'dlramDAO'
+        Field field = DungLuongRamBUS.class.getDeclaredField("dlramDAO");
+        field.setAccessible(true);
+        field.set(ramBUS, mockDAO);
+        
+        // Giả lập trả về list khi gọi dlramDAO.selectAll()
+        ArrayList<DungLuongRamDTO> mockList = new ArrayList<>();
+        DungLuongRamDTO dto1 = new DungLuongRamDTO();
+        dto1.setMadlram(1);
+        dto1.setDungluongram(8);
+        DungLuongRamDTO dto2 = new DungLuongRamDTO();
+        dto2.setMadlram(2);
+        dto2.setDungluongram(16);
+        mockList.add(dto1);
+        mockList.add(dto2);
+        
+        when(mockDAO.selectAll()).thenReturn(mockList);
+        // Cập nhật listDLRam trong BUS theo giá trị từ DAO (để test những method không gọi DAO nữa)
+        ramBUS.getAll().clear();
+        ramBUS.getAll().addAll(mockList);
     }
 
     @Test
     public void testGetAll() {
-        ArrayList<DungLuongRamDTO> list = dlRamBUS.getAll();
+        ArrayList<DungLuongRamDTO> list = ramBUS.getAll();
         assertNotNull(list);
+        assertEquals(2, list.size());
     }
-
-    
 
     @Test
     public void testGetByIndex() {
-        ArrayList<DungLuongRamDTO> list = dlRamBUS.getAll();
-        if (!list.isEmpty()) {
-            DungLuongRamDTO ram = dlRamBUS.getByIndex(0);
-            assertEquals(list.get(0), ram);
-        }
+        DungLuongRamDTO dto = ramBUS.getByIndex(1);
+        assertNotNull(dto);
+        assertEquals(2, dto.getMadlram());
+        assertEquals(16, dto.getDungluongram());
     }
 
     @Test
     public void testGetIndexByMaRam() {
-        ArrayList<DungLuongRamDTO> list = dlRamBUS.getAll();
-        if (!list.isEmpty()) {
-            int ma = list.get(0).getMadlram();
-            int index = dlRamBUS.getIndexByMaRam(ma);
-            assertEquals(0, index);
-        }
+        int index1 = ramBUS.getIndexByMaRam(1);
+        int index2 = ramBUS.getIndexByMaRam(2);
+        int indexNotFound = ramBUS.getIndexByMaRam(99);
+        assertEquals(0, index1);
+        assertEquals(1, index2);
+        assertEquals(-1, indexNotFound);
     }
 
     @Test
-    public void testUpdate() {
-        ArrayList<DungLuongRamDTO> list = dlRamBUS.getAll();
-        if (!list.isEmpty()) {
-            DungLuongRamDTO ram = list.get(0);
-            int oldValue = ram.getDungluongram();
-            ram.setDungluongram(oldValue + 1); // thay đổi giá trị
+    public void testAdd() {
+        DungLuongRamDTO newDTO = new DungLuongRamDTO();
+        newDTO.setMadlram(3);
+        newDTO.setDungluongram(32);
+        when(mockDAO.insert(newDTO)).thenReturn(1);
 
-            boolean updated = dlRamBUS.update(ram);
-            assertTrue(updated);
-            assertEquals(oldValue + 1, dlRamBUS.getAll().get(0).getDungluongram());
-        }
+        boolean result = ramBUS.add(newDTO);
+        assertTrue(result);
+        assertTrue(ramBUS.getAll().contains(newDTO));
+        verify(mockDAO).insert(newDTO);
     }
 
     @Test
     public void testDelete() {
-        DungLuongRamDTO newRam = new DungLuongRamDTO();
-        newRam.setMadlram(998);
-        newRam.setDungluongram(128);
-        dlRamBUS.add(newRam);
-        int index = dlRamBUS.getIndexById(998);
-
-        boolean result = dlRamBUS.delete(newRam, index);
+        // Giả lập xoá dto1 (madlram = 1) từ list
+        when(mockDAO.delete("1")).thenReturn(1);
+        // Lấy index của dto1 phải bằng 0 theo dữ liệu đã setup
+        boolean result = ramBUS.delete(ramBUS.getByIndex(0), 0);
         assertTrue(result);
-        assertEquals(-1, dlRamBUS.getIndexById(998));
+        assertEquals(1, ramBUS.getAll().size());
+        verify(mockDAO).delete("1");
+    }
+
+    @Test
+    public void testUpdate() {
+        // Tạo DTO cập nhật cho madlram = 1
+        DungLuongRamDTO updatedDTO = new DungLuongRamDTO();
+        updatedDTO.setMadlram(1);
+        updatedDTO.setDungluongram(12);
+        when(mockDAO.update(updatedDTO)).thenReturn(1);
+
+        boolean result = ramBUS.update(updatedDTO);
+        assertTrue(result);
+        // Kiểm tra rằng phần tử tại index 0 đã được cập nhật dungluongram = 12
+        assertEquals(12, ramBUS.getByIndex(0).getDungluongram());
+        verify(mockDAO).update(updatedDTO);
+    }
+
+    @Test
+    public void testGetIndexById() {
+        int index = ramBUS.getIndexById(1);
+        assertEquals(0, index);
+        int notFound = ramBUS.getIndexById(99);
+        assertEquals(-1, notFound);
     }
 
     @Test
     public void testCheckDup() {
-        DungLuongRamDTO dto = new DungLuongRamDTO();
-        dto.setMadlram(997);
-        dto.setDungluongram(256);
-        dlRamBUS.add(dto);
-
-        boolean isDup = !dlRamBUS.checkDup(256);
-        assertTrue(isDup);
-
-        boolean isNotDup = dlRamBUS.checkDup(999);
-        assertTrue(isNotDup);
+        
+        assertFalse(ramBUS.checkDup(8));
+        assertTrue(ramBUS.checkDup(64));
     }
 
     @Test
     public void testGetKichThuocById() {
-        ArrayList<DungLuongRamDTO> list = dlRamBUS.getAll();
-        if (!list.isEmpty()) {
-            DungLuongRamDTO dto = list.get(0);
-            int kichthuoc = dlRamBUS.getKichThuocById(dto.getMadlram());
-            assertEquals(dto.getDungluongram(), kichthuoc);
-        }
+        int size = ramBUS.getKichThuocById(1);
+        assertEquals(8, size);
     }
 
     @Test
     public void testGetArrKichThuoc() {
-        String[] kichthuoc = dlRamBUS.getArrKichThuoc();
-        assertNotNull(kichthuoc);
-        assertEquals(dlRamBUS.getAll().size(), kichthuoc.length);
+        String[] arr = ramBUS.getArrKichThuoc();
+        assertArrayEquals(new String[]{"8GB", "16GB"}, arr);
     }
-     @After
-    public void tearDown() {
-    // Xóa dữ liệu test dựa trên ID cụ thể được dùng trong test
-    int[] testIds = {997, 998, 999, 1000};
-    for (int id : testIds) {
-        int index = dlRamBUS.getIndexById(id);
-        if (index != -1) {
-            DungLuongRamDTO dto = dlRamBUS.getByIndex(index);
-            dlRamBUS.delete(dto, index);
-        }
-    }
-}
-
 }
